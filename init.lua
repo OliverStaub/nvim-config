@@ -315,6 +315,12 @@ do
         vim.cmd 'TSUpdate'
         return
       end
+
+      if name == 'markdown-preview.nvim' then
+        if not ev.data.active then vim.cmd.packadd 'markdown-preview.nvim' end
+        vim.fn['mkdp#util#install']()
+        return
+      end
     end,
   })
 end
@@ -345,6 +351,9 @@ do
   -- and then call its `setup()` function to start it with default settings.
   vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
   require('guess-indent').setup {}
+
+  vim.pack.add { gh 'iamcco/markdown-preview.nvim' }
+  vim.keymap.set('n', '<leader>mp', '<cmd>MarkdownPreviewToggle<cr>', { desc = '[M]arkdown [P]review' })
 
   -- Here is a more advanced configuration example that passes options to `gitsigns.nvim`
   --

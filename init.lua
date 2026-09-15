@@ -710,7 +710,8 @@ do
     --    https://github.com/pmizio/typescript-tools.nvim
     --
     -- But for many setups, the LSP (`ts_ls`) will work just fine
-    -- ts_ls = {},
+    tailwindcss = {},
+    ts_ls = {},
     marksman = {},
     stylua = {}, -- Used to format Lua code
 
@@ -772,6 +773,7 @@ do
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
     'markdownlint',
+    'prettierd',
     -- You can add other tools here that you want Mason to install
   })
 
@@ -798,6 +800,13 @@ do
         lua = true,
         python = true,
         markdown = true,
+        javascript = true,
+        javascriptreact = true,
+        typescript = true,
+        typescriptreact = true,
+        json = true,
+        css = true,
+        html = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 500 }
@@ -814,6 +823,13 @@ do
       -- Conform can also run multiple formatters sequentially
       python = { 'isort', 'black' },
       markdown = { 'markdownlint' },
+      javascript = { 'prettierd', 'prettier', stop_after_first = true },
+      javascriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+      typescript = { 'prettierd', 'prettier', stop_after_first = true },
+      typescriptreact = { 'prettierd', 'prettier', stop_after_first = true },
+      json = { 'prettierd', 'prettier', stop_after_first = true },
+      css = { 'prettierd', 'prettier', stop_after_first = true },
+      html = { 'prettierd', 'prettier', stop_after_first = true },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
       -- javascript = { "prettierd", "prettier", stop_after_first = true },
@@ -919,7 +935,25 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers = {
+    'bash',
+    'c',
+    'diff',
+    'html',
+    'lua',
+    'luadoc',
+    'markdown',
+    'markdown_inline',
+    'query',
+    'vim',
+    'vimdoc',
+    'javascript',
+    'typescript',
+    'tsx',
+    'css',
+    'json',
+    'jsdoc',
+  }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -965,6 +999,8 @@ do
       end
     end,
   })
+  vim.pack.add { gh 'windwp/nvim-ts-autotag' }
+  require('nvim-ts-autotag').setup {}
 end
 
 -- ============================================================
@@ -984,9 +1020,9 @@ do
   -- require 'kickstart.plugins.debug'
   require 'kickstart.plugins.indent_line'
   require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.autopairs'
   require 'kickstart.plugins.neo-tree'
-  -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
+  require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --

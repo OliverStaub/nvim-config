@@ -101,6 +101,12 @@ do
   -- Set to true if you have a Nerd Font installed and selected in the terminal
   vim.g.have_nerd_font = true
 
+  -- Disable remote-plugin providers we don't use (silences :checkhealth warnings)
+  vim.g.loaded_perl_provider = 0
+  vim.g.loaded_ruby_provider = 0
+  vim.g.loaded_python3_provider = 0
+  vim.g.loaded_node_provider = 0
+
   -- [[ Setting options ]]
   --  See `:help vim.o`
   -- NOTE: You can change these options as you wish!
@@ -712,6 +718,7 @@ do
     -- But for many setups, the LSP (`ts_ls`) will work just fine
     tailwindcss = {},
     ts_ls = {},
+    eslint = {},
     marksman = {},
     stylua = {}, -- Used to format Lua code
 
@@ -774,6 +781,8 @@ do
   vim.list_extend(ensure_installed, {
     'markdownlint',
     'prettierd',
+    'black',
+    'isort',
     -- You can add other tools here that you want Mason to install
   })
 

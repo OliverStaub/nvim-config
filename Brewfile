@@ -1,33 +1,42 @@
-# Brewfile for ~/.config/nvim (kickstart.nvim, vim.pack edition)
-#
-# Install everything with:
-#   brew bundle --file ~/.config/nvim/Brewfile
-#
-# Not in this file (can't be installed via Homebrew):
-#   xcode-select --install   -> clang + make (telescope-fzf-native, LuaSnip jsregexp, treesitter parsers)
-#
-# Language servers, formatters and linters (lua_ls, stylua, marksman, ts_ls,
-# eslint, tailwindcss, prettierd, markdownlint, black, isort, ...) are NOT
-# listed here: Mason installs them itself from the `servers` table and
-# `ensure_installed` list in init.lua.
-
-# --- Editor ---------------------------------------------------------------
+tap "hashicorp/tap"
+# Open-source, cross-platform JavaScript runtime environment
+brew "node"
+# CLI tool for Angular
+brew "angular-cli"
+# Automate deployment, configuration, and upgrading
+brew "ansible"
+# Checks ansible playbooks for practices and behaviour
+brew "ansible-lint"
+# Container runtimes on MacOS (and Linux) with minimal setup
+brew "colima", restart_service: :changed
+# Pack, ship and run any application as a lightweight container
+brew "docker"
+# Simple, fast and user-friendly alternative to find
+brew "fd"
+# Friendlier find
+brew "ffind"
+# GNU compiler collection
+brew "gcc"
+# GitHub command-line tool
+brew "gh"
+# Utility for directing compilation
+brew "make"
+# Incremental parsing library
+brew "tree-sitter"
+# Ambitious Vim-fork focused on extensibility and agility
 brew "neovim"
-
-# --- Search & navigation (telescope.nvim) ---------------------------------
-brew "ripgrep"          # <space>sg live grep, <space>sw grep word
-brew "fd"               # faster <space>sf find files, respects .gitignore
-
-# --- Syntax (nvim-treesitter, main branch) --------------------------------
-brew "tree-sitter"      # CLI required to build/update parsers (:TSUpdate)
-
-# --- Runtimes Mason needs to install tools --------------------------------
-brew "node"             # npm: ts_ls, eslint, tailwindcss, cssls, html, jsonls, prettierd, markdownlint
-brew "python"           # pip: black, isort
-
-# --- Version control (vim.pack, gitsigns) ---------------------------------
-brew "git"              # Apple's bundled git also works; this keeps it current
-
-# --- Terminal & font ------------------------------------------------------
-cask "ghostty"                          # the terminal you're using
-cask "font-jetbrains-mono-nerd-font"    # required: vim.g.have_nerd_font = true (set as Ghostty font)
+# Tool for managing OCI containers and pods
+brew "podman"
+# Search tool like grep and The Silver Searcher
+brew "ripgrep"
+# Safe, concurrent, practical language
+brew "rust"
+# Parser generator tool
+brew "tree-sitter-cli"
+# Internet file retriever
+brew "wget"
+# Terraform
+brew "hashicorp/tap/terraform", trusted: true
+cask "font-jetbrains-mono-nerd-font"
+# Terminal emulator that uses platform-native UI and GPU acceleration
+cask "ghostty"

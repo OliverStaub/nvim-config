@@ -40,3 +40,5 @@ brew "hashicorp/tap/terraform", trusted: true
 cask "font-jetbrains-mono-nerd-font"
 # Terminal emulator that uses platform-native UI and GPU acceleration
 cask "ghostty"
+
+brew "dotnet"

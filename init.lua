@@ -387,6 +387,8 @@ do
       { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
       { '<leader>t', group = '[T]oggle' },
       { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
+      { '<leader>d', group = '[D]ebug', mode = { 'n', 'v' } },
+      { '<leader>g', group = '[G]it' },
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
   }
@@ -413,6 +415,26 @@ do
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
   require('todo-comments').setup { signs = false }
+
+  -- [[ Git review ]]
+  -- gitsigns (above + kickstart.plugins.gitsigns) handles per-hunk work inside a file.
+  -- These two give the VS Code-style overview: every changed file with a side-by-side
+  -- diff, and a status buffer to stage/commit/push from.
+  --
+  -- diffview: <leader>gd opens all working-tree changes. Inside: <Tab> next file,
+  -- `-` stage/unstage file, `s` stage hunk, `g?` for help, <leader>gq to close.
+  vim.pack.add { gh 'sindrets/diffview.nvim' }
+  require('diffview').setup {}
+  vim.keymap.set('n', '<leader>gd', '<cmd>DiffviewOpen<cr>', { desc = '[G]it [D]iff (working tree)' })
+  vim.keymap.set('n', '<leader>gh', '<cmd>DiffviewFileHistory %<cr>', { desc = '[G]it file [H]istory' })
+  vim.keymap.set('n', '<leader>gH', '<cmd>DiffviewFileHistory<cr>', { desc = '[G]it repo [H]istory' })
+  vim.keymap.set('n', '<leader>gq', '<cmd>DiffviewClose<cr>', { desc = '[G]it diff [Q]uit' })
+
+  -- Neogit: Magit-style status buffer. `s` stage, `u` unstage, `c c` commit,
+  -- `p p` push, `d d` diff the item under the cursor in diffview, `?` for help.
+  vim.pack.add { gh 'NeogitOrg/neogit' }
+  require('neogit').setup { integrations = { diffview = true, telescope = true } }
+  vim.keymap.set('n', '<leader>gg', '<cmd>Neogit<cr>', { desc = '[G]it status (Neo[g]it)' })
 
   -- [[ mini.nvim ]]
   --  A collection of various small independent plugins/modules
@@ -705,6 +727,9 @@ do
   -- Enable the following language servers
   --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
   --  See `:help lsp-config` for information about keys and how to configure
+  --
+  --  NOTE: The C# server (roslyn) is NOT listed here on purpose. roslyn.nvim
+  --  registers and enables it itself; see SECTION 11.
   ---@type table<string, vim.lsp.Config>
   local servers = {
     -- clangd = {},
@@ -763,7 +788,14 @@ do
   }
 
   -- Automatically install LSPs and related tools to stdpath for Neovim
-  require('mason').setup {}
+  require('mason').setup {
+    registries = {
+      'github:mason-org/mason-registry',
+      -- Extra registry that tracks the Roslyn C# server version used by VS Code
+      -- (provides the `roslyn` package). Recommended by roslyn.nvim.
+      'github:Crashdummyy/mason-registry',
+    },
+  }
 
   -- Translates between nvim-lspconfig server names and mason.nvim package names (e.g. lua_ls <-> lua-language-server)
   require('mason-lspconfig').setup {
@@ -783,6 +815,12 @@ do
     'prettierd',
     'black',
     'isort',
+    -- .NET / C#
+    'roslyn', -- C# language server (from the Crashdummyy registry above)
+    'csharpier', -- C# formatter
+    -- NOTE: netcoredbg is intentionally not installed via Mason: on Apple Silicon
+    -- Mason would give you the Intel build, which can't debug arm64 .NET apps.
+    -- SECTION 11 pulls in a native build instead.
     -- You can add other tools here that you want Mason to install
   })
 
@@ -816,6 +854,7 @@ do
         json = true,
         css = true,
         html = true,
+        cs = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 500 }
@@ -839,6 +878,7 @@ do
       json = { 'prettierd', 'prettier', stop_after_first = true },
       css = { 'prettierd', 'prettier', stop_after_first = true },
       html = { 'prettierd', 'prettier', stop_after_first = true },
+      cs = { 'csharpier' },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
       -- javascript = { "prettierd", "prettier", stop_after_first = true },
@@ -965,6 +1005,7 @@ do
     'css',
     'json',
     'jsdoc',
+    'c_sharp',
   }
   require('nvim-treesitter').install(parsers)
 
@@ -1029,6 +1070,8 @@ do
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
+  -- NOTE: `kickstart.plugins.debug` stays commented out: SECTION 11 below sets up
+  -- nvim-dap itself, and loading both would define the keymaps twice.
   -- require 'kickstart.plugins.debug'
   require 'kickstart.plugins.indent_line'
   require 'kickstart.plugins.lint'
@@ -1040,6 +1083,182 @@ do
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   -- require 'custom.plugins'
+end
+
+-- ============================================================
+-- SECTION 11: .NET / C#
+-- Roslyn LSP (completion, diagnostics, refactorings) + nvim-dap debugging
+-- Requires the .NET SDK on PATH (e.g. `brew install --cask dotnet-sdk`).
+-- ============================================================
+do
+  -- [[ Roslyn language server ]]
+  -- The same server VS Code's C# extension uses. Installed through Mason from
+  -- the Crashdummyy registry (package name: `roslyn`, see SECTION 6).
+  -- roslyn.nvim wraps it, adds solution detection (`:Roslyn target`) and
+  -- support for source-generated files. It enables the server itself.
+  vim.pack.add { gh 'seblyng/roslyn.nvim' }
+
+  -- Server settings go through vim.lsp.config, using the name "roslyn".
+  vim.lsp.config('roslyn', {
+    settings = {
+      ['csharp|inlay_hints'] = {
+        csharp_enable_inlay_hints_for_implicit_object_creation = true,
+        csharp_enable_inlay_hints_for_implicit_variable_types = true,
+        csharp_enable_inlay_hints_for_lambda_parameter_types = true,
+        csharp_enable_inlay_hints_for_types = true,
+        dotnet_enable_inlay_hints_for_parameters = true,
+        dotnet_suppress_inlay_hints_for_parameters_that_match_argument_name = true,
+      },
+      ['csharp|code_lens'] = {
+        dotnet_enable_references_code_lens = true,
+        dotnet_enable_tests_code_lens = true,
+      },
+      ['csharp|completion'] = {
+        -- Offer types from namespaces you haven't imported yet (and auto-add the `using`)
+        dotnet_show_completion_items_from_unimported_namespaces = true,
+        dotnet_show_name_completion_suggestions = true,
+      },
+      ['csharp|background_analysis'] = {
+        dotnet_analyzer_diagnostics_scope = 'openFiles',
+        dotnet_compiler_diagnostics_scope = 'fullSolution',
+      },
+      ['csharp|symbol_search'] = { dotnet_search_reference_assemblies = true },
+      ['csharp|formatting'] = { dotnet_organize_imports_on_format = true },
+    },
+  })
+
+  require('roslyn').setup {
+    -- Search parent directories for a .sln when the project sits deeper than the solution
+    broad_search = true,
+    -- Once a solution is picked, keep using it (change with `:Roslyn target`)
+    lock_target = true,
+  }
+
+  -- Code lens ("3 references", "run test") needs a manual refresh
+  vim.api.nvim_create_autocmd({ 'BufEnter', 'InsertLeave', 'TextChanged' }, {
+    group = vim.api.nvim_create_augroup('roslyn-codelens', { clear = true }),
+    pattern = { '*.cs', '*.razor', '*.cshtml' },
+    callback = function(ev)
+      if next(vim.lsp.get_clients { bufnr = ev.buf, name = 'roslyn' }) then vim.lsp.codelens.refresh { bufnr = ev.buf } end
+    end,
+  })
+
+  -- [[ Debugging with nvim-dap + netcoredbg ]]
+  vim.pack.add {
+    gh 'mfussenegger/nvim-dap',
+    gh 'nvim-neotest/nvim-nio', -- required by nvim-dap-ui
+    gh 'rcarriga/nvim-dap-ui',
+    gh 'theHamsta/nvim-dap-virtual-text', -- shows variable values inline while stopped
+    -- Samsung ships no Apple Silicon build of netcoredbg (Mason would give you the
+    -- Intel one, which can't debug arm64 .NET apps). This plugin carries a native build.
+    gh 'Cliffback/netcoredbg-macOS-arm64.nvim',
+  }
+
+  local dap = require 'dap'
+  local dapui = require 'dapui'
+
+  -- Registers dap.adapters.coreclr pointing at the bundled arm64 netcoredbg
+  require('netcoredbg-macOS-arm64').setup(dap)
+
+  -- Build the project, then find the startup assembly.
+  -- Entry assemblies are the ones with a `<name>.runtimeconfig.json` next to them,
+  -- which conveniently filters out class libraries and NuGet dependencies.
+  local last_dll ---@type string?
+  local function pick_dll()
+    vim.notify('dotnet build …', vim.log.levels.INFO)
+    local build = vim.system({ 'dotnet', 'build', '-c', 'Debug', '--nologo', '-v', 'q' }, { cwd = vim.fn.getcwd() }):wait()
+    if build.code ~= 0 then
+      vim.notify('Build failed:\n' .. (build.stdout or '') .. (build.stderr or ''), vim.log.levels.ERROR)
+      return dap.ABORT
+    end
+
+    local configs = vim.fn.globpath(vim.fn.getcwd(), '**/bin/Debug/**/*.runtimeconfig.json', false, true)
+    local dlls = vim.tbl_map(function(p) return (p:gsub('%.runtimeconfig%.json$', '.dll')) end, configs)
+
+    if #dlls == 0 then
+      last_dll = vim.fn.input('Path to dll: ', vim.fn.getcwd() .. '/bin/Debug/', 'file')
+      return last_dll
+    elseif #dlls == 1 then
+      last_dll = dlls[1]
+      return last_dll
+    end
+
+    -- Several runnable projects: let the user choose (opens in Telescope via ui-select)
+    return coroutine.create(function(co)
+      vim.ui.select(dlls, {
+        prompt = 'Select project to debug',
+        format_item = function(item) return vim.fn.fnamemodify(item, ':~:.') end,
+      }, function(choice)
+        last_dll = choice
+        coroutine.resume(co, choice or dap.ABORT)
+      end)
+    end)
+  end
+
+  dap.configurations.cs = {
+    {
+      type = 'coreclr',
+      name = 'Launch (build + run)',
+      request = 'launch',
+      program = pick_dll,
+      -- Run from the project folder so appsettings.json etc. are found
+      cwd = function() return last_dll and last_dll:match '(.-)[/\\]bin[/\\]' or '${workspaceFolder}' end,
+      env = { ASPNETCORE_ENVIRONMENT = 'Development', DOTNET_ENVIRONMENT = 'Development' },
+      stopAtEntry = false,
+    },
+    {
+      type = 'coreclr',
+      name = 'Attach to process',
+      request = 'attach',
+      processId = require('dap.utils').pick_process,
+    },
+  }
+
+  -- UI
+  dapui.setup {
+    icons = { expanded = '▾', collapsed = '▸', current_frame = '*' },
+    controls = {
+      icons = {
+        pause = '⏸',
+        play = '▶',
+        step_into = '⏎',
+        step_over = '⏭',
+        step_out = '⏮',
+        step_back = 'b',
+        run_last = '▶▶',
+        terminate = '⏹',
+        disconnect = '⏏',
+      },
+    },
+  }
+  require('nvim-dap-virtual-text').setup {}
+
+  dap.listeners.after.event_initialized['dapui_config'] = dapui.open
+  dap.listeners.before.event_terminated['dapui_config'] = dapui.close
+  dap.listeners.before.event_exited['dapui_config'] = dapui.close
+
+  if vim.g.have_nerd_font then
+    local signs = { Breakpoint = '', BreakpointCondition = '', BreakpointRejected = '', LogPoint = '', Stopped = '' }
+    for name, icon in pairs(signs) do
+      vim.fn.sign_define('Dap' .. name, { text = icon, texthl = 'Dap' .. name, numhl = 'Dap' .. name })
+    end
+  end
+
+  -- Keymaps (same layout kickstart's optional debug module uses)
+  vim.keymap.set('n', '<F5>', dap.continue, { desc = 'Debug: Start/Continue' })
+  vim.keymap.set('n', '<F1>', dap.step_into, { desc = 'Debug: Step Into' })
+  vim.keymap.set('n', '<F2>', dap.step_over, { desc = 'Debug: Step Over' })
+  vim.keymap.set('n', '<F3>', dap.step_out, { desc = 'Debug: Step Out' })
+  vim.keymap.set('n', '<F7>', dapui.toggle, { desc = 'Debug: See last session result.' })
+  vim.keymap.set('n', '<leader>b', dap.toggle_breakpoint, { desc = 'Debug: Toggle Breakpoint' })
+  vim.keymap.set('n', '<leader>B', function() dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, { desc = 'Debug: Set Breakpoint' })
+  vim.keymap.set('n', '<leader>dr', dap.repl.open, { desc = '[D]ebug [R]EPL' })
+  vim.keymap.set('n', '<leader>dl', dap.run_last, { desc = '[D]ebug run [L]ast' })
+  vim.keymap.set({ 'n', 'v' }, '<leader>de', dapui.eval, { desc = '[D]ebug [E]val under cursor' })
+  vim.keymap.set('n', '<leader>dq', function()
+    dap.terminate()
+    dapui.close()
+  end, { desc = '[D]ebug [Q]uit' })
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
